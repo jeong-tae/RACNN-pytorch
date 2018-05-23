@@ -37,8 +37,8 @@ class RACNN(nn.Module):
         self.crop_resize = CropAndResize(out_size = 224)
 
         self.classifier1 = nn.Linear(512, num_classes)
-        self.classifier2 = nn.Linear(512 * 2, num_classes)
-        self.classifier3 = nn.Linear(512 * 3, num_classes)
+        self.classifier2 = nn.Linear(512, num_classes)
+        self.classifier3 = nn.Linear(512, num_classes)
 
     def forward(self, x):
 
@@ -59,12 +59,14 @@ class RACNN(nn.Module):
         pool5_A = pool5_A.view(-1, 512)
         pool5_AA = pool5_AA.view(-1, 512)
 
+        """#Feature fusion
         scale123 = torch.cat([pool5, pool5_A, pool5_AA], 1)
         scale12 = torch.cat([pool5, pool5_A], 1)
+        """
 
         logits1 = self.classifier1(pool5)
-        logits2 = self.classifier2(scale12)
-        logits3 = self.classifier3(scale123)
+        logits2 = self.classifier2(pool5_A)
+        logits3 = self.classifier3(pool5_AA)
         return [logits1, logits2, logits3], [conv5_4, conv5_4_A], [atten1, atten2]
 
 class CropLayer(torch.autograd.Function):
