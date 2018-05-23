@@ -5,7 +5,7 @@ def multitask_loss(preds, labels):
     loss = []
     for i in range(len(preds)):
         loss.append(F.cross_entropy(preds[i], labels))
-    loss = torch.sum(torch.stack(loss))
+    #loss = torch.sum(torch.stack(loss))
     return loss
 
 def pairwise_ranking_loss(preds, size_average = True):
