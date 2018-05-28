@@ -72,7 +72,7 @@ def train():
     apn_tol = 0
     batch_iterator = iter(trainloader)
 
-    while ((old_cls_loss - new_cls_loss)**2 > 1e-7) and ((old_apn_loss - new_apn_loss)**2 > 1e-7) and (iteration < 1000000):
+    while ((old_cls_loss - new_cls_loss)**2 > 1e-7) and ((old_apn_loss - new_apn_loss)**2 > 1e-7) and (iteration < 500000):
         # until the two type of losses no longer change
         print(' [*] Swtich optimize parameters to Class')
         while ((cls_tol < 10) and (cls_iter % 5000 != 0)):
