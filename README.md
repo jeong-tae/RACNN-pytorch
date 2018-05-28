@@ -17,6 +17,10 @@ This is a third party implementation of RA-CNN in pytorch. I am still working on
 - [ ] Sample visualization
 - [ ] Add new approach to improve
 
+## Current issue
+- Don't know how to pre-train a APN. Need more details
+- Rankloss doesn't decrease. Because no pretrain? or bugs?
+
 ## Usage
 
 For training, use following command.
