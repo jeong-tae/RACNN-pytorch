@@ -34,3 +34,9 @@ $ Tensorboard --log='visual/' --port=6666
 ```
 
 and go to 'localhost:6666' on webbrowser. You can see the Loss, Acc and so on.
+
+## References
+
+- [Original code](https://github.com/Jianlong-Fu/Recurrent-Attention-CNN)
+- [Other pytorch implementation](https://github.com/Charleo85/DeepCar)
+    - with car dataset, I refer the attention crop code from here
