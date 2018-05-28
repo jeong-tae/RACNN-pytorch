@@ -34,7 +34,7 @@ class RACNN(nn.Module):
             nn.Linear(1024, 3),
             nn.Sigmoid(),
         )
-        self.crop_resize = CropAndResize(out_size = 224)
+        self.crop_resize = AttentionCropLayer()
 
         self.classifier1 = nn.Linear(512, num_classes)
         self.classifier2 = nn.Linear(512, num_classes)
@@ -69,89 +69,86 @@ class RACNN(nn.Module):
         logits3 = self.classifier3(pool5_AA)
         return [logits1, logits2, logits3], [conv5_4, conv5_4_A], [atten1, atten2]
 
-class CropLayer(torch.autograd.Function):
+class AttentionCropFunction(torch.autograd.Function):
     @staticmethod
-    def forward(self, image, loc):
-        self.save_for_backward(image, loc)
-        #self.save_for_backward(loc)
-        in_size = image.size()[1]
-        tx, ty, tl = loc[0], loc[1], loc[2]
-        tl = tl if tl > 0.01 * in_size else 0.01 * in_size
+    def forward(self, images, locs):
+        h = lambda x: 1 / (1 + torch.exp(-10 * x))
+        in_size = images.size()[2]
+        unit = torch.stack([torch.arange(0, in_size)] * in_size)
+        x = torch.stack([unit.t()] * 3)
+        y = torch.stack([unit] * 3)
+        if isinstance(images, torch.cuda.FloatTensor):
+            x, y = x.cuda(), y.cuda()
+        
+        in_size = images.size()[2]
+        ret = []
+        for i in range(images.size(0)):
+            tx, ty, tl = locs[i][0], locs[i][1], locs[i][2]
+            tx = tx if tx > (in_size/3) else in_size/3
+            tx = tx if (in_size/3*2) < tx else (in_size/3*2)
+            ty = ty if ty > (in_size/3) else in_size/3
+            ty = ty if (in_size/3*2) < ty else (in_size/3*2)
+            tl = tl if tl > (in_size/3) else in_size/3
 
-        w_off = int(tx-tl) if (tx-tl) > 0 else 0
-        h_off = int(ty-tl) if (ty-tl) > 0 else 0
-        w_end = int(tx+tl) if (tx+tl) < in_size else in_size
-        h_end = int(ty+tl) if (ty+tl) < in_size else in_size
-        cropped = image[:, h_off:h_end, w_off:w_end]
-        return cropped
+            w_off = int(tx-tl) if (tx-tl) > 0 else 0
+            h_off = int(ty-tl) if (ty-tl) > 0 else 0
+            w_end = int(tx+tl) if (tx+tl) < in_size else in_size
+            h_end = int(ty+tl) if (ty+tl) < in_size else in_size
+
+            mk = (h(x-w_off) - h(x-w_end)) * (h(y-h_off) - h(y-h_end))
+            xatt = images[i] * mk
+            
+            xatt_cropped = xatt[:, h_off : h_end, w_off : w_end]
+            before_upsample = Variable(xatt_cropped.unsqueeze(0))
+            xamp = F.upsample(before_upsample, size=(224,224), mode='bilinear', align_corners = True)
+            ret.append(xamp.data.squeeze())
+        
+        ret_tensor = torch.stack(ret)
+        self.save_for_backward(images, ret_tensor)
+        return ret_tensor
 
     @staticmethod
     def backward(self, grad_output):
-        image, loc = self.saved_tensors
-        grad_input = grad_output.clone()
-        in_size = image.size()[1]
-        tx, ty, tl = loc[0], loc[1], loc[2]
-
-        H = lambda x: 1/(1 + torch.exp(-0.05 * x))
-        diff_H = lambda x: 0.05 * torch.exp(-0.05 * x) / ((1 + torch.exp(-0.05 * x)) * (1 + torch.exp(-0.05 * x)))
-        F = lambda a, b, c, x, y:(H(x - (a - c)) - H(x - (a + c)))*(H(y - (b - c)) - H(y - (b + c)))
-        diff_F_a = lambda a, b, c, x, y: (diff_H(x - (a - c)) - diff_H(x - (a + c)))*(H(y - (b - c)) - H(y - (b + c)))
-        diff_F_b = lambda a, b, c, x, y: (diff_H(y - (b - c)) - diff_H(y - (b + c)))*(H(x - (a - c)) - H(x - (a + c)))
-        diff_F_c = lambda a, b, c, x, y: -((diff_H(y - (b - c)) + diff_H(y - (b + c)))*(H(x - (a - c)) - H(x - (a + c))) + (diff_H(x - (a - c)) + diff_H(x - (a + c)))*(H(y - (b - c)) - H(y - (b + c)))) + 0.005
+        images, ret_tensor = self.saved_variables[0], self.saved_variables[1]
+        in_size = 224
+        ret = torch.Tensor(grad_output.size(0), 3).zero_()
+        norm = -(grad_output * grad_output).sum(dim=1)
         
-        diff_loc = torch.zeros(loc.size()).type(loc.type())
-        diff_output = torch.zeros(image.size()).type(image.type())
-        max_diff = torch.abs(grad_input).max()
-
-        tl = tl if tl > 0.01 * in_size else 0.01 * in_size
-
-        w_off = int(tx-tl) if (tx-tl) > 0 else 0
-        h_off = int(ty-tl) if (ty-tl) > 0 else 0
-        w_end = int(tx+tl) if (tx+tl) < in_size else in_size
-        h_end = int(ty+tl) if (ty+tl) < in_size else in_size
-
-        diff_output[:, h_off:h_end, w_off:w_end] = grad_input
-
-        tops = torch.abs(diff_output.clone())
-        if max_diff > 0: # divide first can reduce the duplicated computation
-            tops = tops / max_diff * 0.0000001
+#         show_image(inputs.cpu().data[0])
+#         show_image(ret_tensor.cpu().data[0])
+#         plt.imshow(norm[0].cpu().numpy(), cmap='gray')
         
-        tops = tops.sum(0) # channel sum. after sum also can get same result
-        size_range = torch.range(0, tops.size()[1]-1).type(image.type())
-        xs = tx - tl + 2 * size_range * tl / 224 # 224 is fixed size, don't know why...
-        ys = ty - tl + 2 * size_range * tl / 224
-        #xs = size_range
-        #ys = size_range
-        xs = xs.expand(tops.size()[0], tops.size()[1])
-        ys = ys.expand(tops.size()[0], tops.size()[1])
-        diff_loc[0] = torch.sum(tops * diff_F_a(tx, ty, tl, xs, ys))
-        diff_loc[1] = torch.sum(tops * diff_F_b(tx, ty, tl, xs, ys))
-        diff_loc[2] = torch.sum(tops * diff_F_c(tx, ty, tl, xs, ys))
-        return diff_output, diff_loc
+        x = torch.stack([torch.arange(0, in_size)] * in_size).t()
+        y = x.t()
+        long_size = (in_size/3*2)
+        short_size = (in_size/3)
+        mx = (x >= long_size).float() - (x < short_size).float()
+        my = (y >= long_size).float() - (y < short_size).float()
+        ml = (((x<short_size)+(x>=long_size)+(y<short_size)+(y>=long_size)) > 0).float()*2 - 1
+        
+        mx_batch = torch.stack([mx.float()] * grad_output.size(0))
+        my_batch = torch.stack([my.float()] * grad_output.size(0))
+        ml_batch = torch.stack([ml.float()] * grad_output.size(0))
+        
+        if isinstance(grad_output, torch.cuda.FloatTensor):
+            mx_batch = mx_batch.cuda()
+            my_batch = my_batch.cuda()
+            ml_batch = ml_batch.cuda()
+            ret = ret.cuda()
+        
+        ret[:, 0] = (norm * mx_batch).sum(dim=1).sum(dim=1)
+        ret[:, 1] = (norm * my_batch).sum(dim=1).sum(dim=1)
+        ret[:, 2] = (norm * ml_batch).sum(dim=1).sum(dim=1)
+        return None, ret
 
-
-class CropAndResize(nn.Module):
+class AttentionCropLayer(nn.Module):
     """
         Crop function sholud be implemented with the nn.Function.
         Detailed description is in 'Attention localization and amplification' part.
         Forward function will not changed. backward function will not opearate with autograd, but munually implemented function
     """
-    def __init__(self, out_size):
-        super(CropAndResize, self).__init__()
-        self.out_size = out_size
-        self.crop = CropLayer.apply
-
     def forward(self, images, locs):
-        N = images.size()[0]
-        
-        outputs = []
-        for i in range(N):
-            cropped = self.crop(images[i], locs[i])
-            resized = F.upsample(cropped.unsqueeze(0), size = [self.out_size, self.out_size], mode = 'bilinear', align_corners = True)
-            outputs.append(resized)
-
-        outputs = torch.cat(outputs, 0)
-        return outputs
+        return AttentionCropFunction.apply(images, locs)
 
 if __name__ == '__main__':
     print(" [*] RACNN forward test...")

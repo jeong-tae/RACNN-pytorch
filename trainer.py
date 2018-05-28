@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description = 'Training arguments')
 parser.add_argument('--cuda', default = True, type = bool, help = "use cuda to train")
 parser.add_argument('--lr', default = 0.01, type = float, help = "initial learning rate")
 args = parser.parse_args()
-decay_steps = [3, 6, 9, 12, 15, 20] # based on epoch
+decay_steps = [20, 40] # based on epoch
 
 net = RACNN(num_classes = 200)
 if args.cuda and torch.cuda.is_available():
@@ -35,13 +35,15 @@ if args.cuda and torch.cuda.is_available():
 else:
     print(" [*] Set cuda: False")
 
-logger = Logger('./visual/' + 'RACNN_CUB200')
+logger = Logger('./visual/' + 'RACNN_CUB200_8')
 cls_params = list(net.module.b1.parameters()) + list(net.module.b2.parameters()) + list(net.module.b3.parameters()) + list(net.module.classifier1.parameters()) + list(net.module.classifier2.parameters()) + list(net.module.classifier3.parameters())
 
 opt1 = optim.SGD(cls_params, lr = args.lr, momentum = 0.9, weight_decay = 0.0005)
 
 apn_params = list(net.module.apn1.parameters()) + list(net.module.apn2.parameters())
 opt2 = optim.SGD(apn_params, lr = args.lr, momentum = 0.9, weight_decay = 0.0005)
+#for param in apn_params:
+#    param.register_hook(print)
 
 def train():
     net.train()
@@ -59,7 +61,7 @@ def train():
     testloader = data.DataLoader(testset, batch_size = 4,
             shuffle = False, collate_fn = testset.CUB_collate, num_workers = 4)
 
-    apn_iter, apn_epoch, apn_steps = pretrainAPN(trainset, trainloader)
+    apn_iter, apn_epoch, apn_steps = 0, 0, 1 #pretrainAPN(trainset, trainloader)
     cls_iter, cls_epoch, cls_steps = 0, 0, 1
     switch_step = 0
     old_cls_loss, new_cls_loss = 2, 1
@@ -96,6 +98,7 @@ def train():
             opt1.zero_grad()
             new_cls_losses = multitask_loss(logits, labels)
             new_cls_loss = sum(new_cls_losses)
+            #new_cls_loss = new_cls_losses[0]
             new_cls_loss.backward()
             opt1.step()
             t1 = time.time()
@@ -126,7 +129,9 @@ def train():
         new_apn_loss = pairwise_ranking_loss(preds)
         logger.scalar_summary('rank_loss', new_apn_loss.item(), iteration + 1)
         iteration += 1
-    
+        #cls_iter += 1
+        test(testloader, iteration)
+        #continue
         print(' [*] Swtich optimize parameters to APN')
         switch_step += 1
 
@@ -213,10 +218,15 @@ def pretrainAPN(trainset, trainloader):
         weak_loc = []
         for i in range(len(conv5s)):
             loc_label = torch.ones([images.size(0),3]) * 0.25 # tl = 0.25, fixed
+            resize = 448
+            if i >= 1:
+                resize = 224
             if args.cuda:
                 loc_label = loc_label.cuda()
             for j in range(images.size(0)):
-                response_map = conv5s[i][j].mean(0)
+                response_map = conv5s[i][j]
+                response_map = F.upsample(response_map, size = [resize, resize])
+                response_map = response_map.mean(0)
                 rawmaxidx = response_map.view(-1).max(0)[1]
                 idx = []
                 for d in list(response_map.size())[::-1]:
@@ -242,7 +252,9 @@ def pretrainAPN(trainset, trainloader):
 def test(testloader, iteration):
     with torch.no_grad():
         net.eval()
-        corrects = 0
+        corrects1 = 0
+        corrects2 = 0
+        corrects3 = 0
         cnt = 0
         test_cls_losses = []
         test_apn_losses = []
@@ -261,17 +273,27 @@ def test(testloader, iteration):
             test_apn_loss = pairwise_ranking_loss(preds)
             test_cls_losses.append(sum(test_cls_losses))
             test_apn_losses.append(test_apn_loss)
-            _, predicted = torch.max(logits[2], 1)
-            correct = (predicted == test_labels).sum()
-            corrects += correct
+            _, predicted1 = torch.max(logits[0], 1)
+            correct1 = (predicted1 == test_labels).sum()
+            corrects1 += correct1
+            _, predicted2 = torch.max(logits[1], 1)
+            correct2 = (predicted2 == test_labels).sum()
+            corrects2 += correct2
+            _, predicted3 = torch.max(logits[2], 1)
+            correct3 = (predicted3 == test_labels).sum()
+            corrects3 += correct3
 
         test_cls_losses = torch.stack(test_cls_losses).mean()
         test_apn_losses = torch.stack(test_apn_losses).mean()
-        accuracy = corrects.float() / cnt
+        accuracy1 = corrects1.float() / cnt
+        accuracy2 = corrects2.float() / cnt
+        accuracy3 = corrects3.float() / cnt
         logger.scalar_summary('test_cls_loss', test_cls_losses.item(), iteration + 1)
         logger.scalar_summary('test_rank_loss', test_apn_losses.item(), iteration + 1)
-        logger.scalar_summary('test_acc123', accuracy.item(), iteration + 1)
-        print(" [*] Iter %d || Test accuracy: %.4f"%(iteration, accuracy.item()))
+        logger.scalar_summary('test_acc1', accuracy1.item(), iteration + 1)
+        logger.scalar_summary('test_acc2', accuracy2.item(), iteration + 1)
+        logger.scalar_summary('test_acc3', accuracy3.item(), iteration + 1)
+        print(" [*] Iter %d || Test accuracy1: %.4f, Test accuracy2: %.4f, Test accuracy3: %.4f"%(iteration, accuracy1.item(), accuracy2.item(), accuracy3.item()))
 
     net.train()
 
