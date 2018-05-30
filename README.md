@@ -23,7 +23,7 @@ This is a third party implementation of RA-CNN in pytorch. I am still working on
 
 ## Results
 
-Current best is 71.68% at scale1 with APN pretraining. It's bad than using just VGG19
+Current best is 71.68% at scale1 without APN pretraining. It's bad than using just VGG19
 
 ## Usage
 
