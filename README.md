@@ -21,6 +21,10 @@ This is a third party implementation of RA-CNN in pytorch. I am still working on
 - Don't know how to pre-train a APN. Need more details
 - Rankloss doesn't decrease. Because no pretrain? or bugs?
 
+## Results
+
+Current best is 71.68% at scale1 with APN pretraining. It's bad than using just VGG19
+
 ## Usage
 
 For training, use following command.

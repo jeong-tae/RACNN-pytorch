@@ -35,7 +35,7 @@ if args.cuda and torch.cuda.is_available():
 else:
     print(" [*] Set cuda: False")
 
-logger = Logger('./visual/' + 'RACNN_CUB200_8')
+logger = Logger('./visual/' + 'RACNN_CUB200_9')
 cls_params = list(net.module.b1.parameters()) + list(net.module.b2.parameters()) + list(net.module.b3.parameters()) + list(net.module.classifier1.parameters()) + list(net.module.classifier2.parameters()) + list(net.module.classifier3.parameters())
 
 opt1 = optim.SGD(cls_params, lr = args.lr, momentum = 0.9, weight_decay = 0.0005)
@@ -61,7 +61,7 @@ def train():
     testloader = data.DataLoader(testset, batch_size = 4,
             shuffle = False, collate_fn = testset.CUB_collate, num_workers = 4)
 
-    apn_iter, apn_epoch, apn_steps = 0, 0, 1 #pretrainAPN(trainset, trainloader)
+    apn_iter, apn_epoch, apn_steps = pretrainAPN(trainset, trainloader)
     cls_iter, cls_epoch, cls_steps = 0, 0, 1
     switch_step = 0
     old_cls_loss, new_cls_loss = 2, 1
@@ -194,7 +194,7 @@ def pretrainAPN(trainset, trainloader):
     apn_steps, apn_epoch = 1, -1
 
     batch_iterator = iter(trainloader)
-    for _iter in range(0, 5000):
+    for _iter in range(0, 20000):
         iteration = _iter
         if (not batch_iterator) or (iteration % epoch_size == 0):
             batch_iterator = iter(trainloader)
@@ -217,7 +217,7 @@ def pretrainAPN(trainset, trainloader):
         # search regions with the highest response value in conv5
         weak_loc = []
         for i in range(len(conv5s)):
-            loc_label = torch.ones([images.size(0),3]) * 0.25 # tl = 0.25, fixed
+            loc_label = torch.ones([images.size(0),3]) * 0.33 # tl = 0.25, fixed
             resize = 448
             if i >= 1:
                 resize = 224
@@ -247,7 +247,7 @@ def pretrainAPN(trainset, trainloader):
 
         logger.scalar_summary('pre_apn_loss', apn_loss.item(), iteration + 1)
 
-    return 5000, apn_epoch, apn_steps
+    return 20000, apn_epoch, apn_steps
 
 def test(testloader, iteration):
     with torch.no_grad():
