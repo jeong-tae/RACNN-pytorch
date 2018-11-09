@@ -17,7 +17,7 @@ def pairwise_ranking_loss(preds, size_average = True):
                     preds = [logits1[class], logits2[class]]
     """
     if len(preds) <= 1:
-        return 0
+        return torch.zeros(1).type(preds.type())
     else:
         losses = []
         for pred in preds:
