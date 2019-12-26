@@ -84,11 +84,11 @@ class AttentionCropFunction(torch.autograd.Function):
         ret = []
         for i in range(images.size(0)):
             tx, ty, tl = locs[i][0], locs[i][1], locs[i][2]
-            tx = tx if tx > (in_size/3) else in_size/3
-            tx = tx if (in_size/3*2) < tx else (in_size/3*2)
-            ty = ty if ty > (in_size/3) else in_size/3
-            ty = ty if (in_size/3*2) < ty else (in_size/3*2)
             tl = tl if tl > (in_size/3) else in_size/3
+            tx = tx if tx > tl else tl
+            tx = tx if tx < in_size-tl else in_size-tl
+            ty = ty if ty > tl else tl
+            ty = ty if ty < in_size-tl else in_size-tl
 
             w_off = int(tx-tl) if (tx-tl) > 0 else 0
             h_off = int(ty-tl) if (ty-tl) > 0 else 0
