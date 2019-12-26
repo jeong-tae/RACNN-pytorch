@@ -181,6 +181,7 @@ def train():
         images, labels = next(batch_iterator)
         if args.cuda:
             images, labels = images.cuda(), labels.cuda()
+        logits, _, _ = net(images)
         new_cls_losses = multitask_loss(logits, labels)
         new_cls_loss = sum(new_cls_losses)
         logger.scalar_summary('cls_loss', new_cls_loss.item(), iteration + 1)
