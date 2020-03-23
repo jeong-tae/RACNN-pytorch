@@ -110,7 +110,6 @@ def train():
             else:
                 cls_tol = 0
 
-
             logger.scalar_summary('cls_loss', new_cls_loss.item(), iteration + 1)
             logger.scalar_summary('cls_loss1', new_cls_losses[0].item(), iteration + 1)
             logger.scalar_summary('cls_loss12', new_cls_losses[1].item(), iteration + 1)
@@ -196,6 +195,7 @@ def train():
         # visualize cropped inputs
         save_img(x1, path=f'samples/iter_{iteration}@2x.jpg', annotation=f'loss = {avg_loss:.7f}, step = {iteration}')
         save_img(x2, path=f'samples/iter_{iteration}@4x.jpg', annotation=f'loss = {avg_loss:.7f}, step = {iteration}')
+        torch.save(net.state_dict, 'ckpt/RACNN_vgg_CUB200_iter%d.pth'%iteration)
 
 def pretrainAPN(trainset, trainloader):
     epoch_size = len(trainset) // 4
@@ -233,7 +233,7 @@ def pretrainAPN(trainset, trainloader):
                 loc_label = loc_label.cuda()
             for j in range(images.size(0)):
                 response_map = conv5s[i][j]
-                response_map = F.upsample(response_map, size = [resize, resize])
+                response_map = F.interpolate(response_map.unsqueeze(0), size = [resize, resize])
                 response_map = response_map.mean(0)
                 rawmaxidx = response_map.view(-1).max(0)[1]
                 idx = []
