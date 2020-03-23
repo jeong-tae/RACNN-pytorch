@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
 def save_img(x, path, annotation=''):
     fig = plt.gcf()  # generate outputs
     plt.imshow(tensor_to_img(x[0]), aspect='equal'), plt.axis('off'), fig.set_size_inches(448/100.0/3.0, 448/100.0/3.0)

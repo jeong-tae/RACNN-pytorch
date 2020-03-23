@@ -17,6 +17,7 @@ and un-compress using this command `tar -xvf CUB_200_2011.tgz -C data/`
 - [ ] Alternative training between APN and ConvNet/Classifier
 - [ ] Reproduce and report on README.md
 - [ ] Sample visualization
+  - Followed this [impl](https://github.com/klrc/RACNN-pytorch)
 - [ ] Add new approach to improve
 
 ## Current issue
