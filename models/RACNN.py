@@ -100,7 +100,7 @@ class AttentionCropFunction(torch.autograd.Function):
             
             xatt_cropped = xatt[:, w_off:w_end, h_off:h_end]
             before_upsample = Variable(xatt_cropped.unsqueeze(0))
-            xamp = F.upsample(before_upsample, size=(224,224), mode='bilinear', align_corners = True)
+            xamp = F.interpolate(before_upsample, size=(224,224), mode='bilinear', align_corners = True)
             ret.append(xamp.data.squeeze())
         
         ret_tensor = torch.stack(ret)
