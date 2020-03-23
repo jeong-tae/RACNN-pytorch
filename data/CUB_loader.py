@@ -2,6 +2,7 @@
 # mean 109.973, 127.336, 123.883
 import os
 import cv2
+from PIL import Image
 import numpy as np
 import torch
 import torch.utils.data as data
@@ -26,7 +27,6 @@ class CUB200_loader(data.Dataset):
 
         if transform is None and split.lower() == 'train':
             self.transform = transforms.Compose([
-                transforms.ToPILImage(),
                 transforms.Resize(448),
                 transforms.RandomCrop([448, 448]),
                 transforms.RandomHorizontalFlip(),
@@ -37,7 +37,6 @@ class CUB200_loader(data.Dataset):
                 ])
         elif transform is None and split.lower() == 'test':
             self.transform = transforms.Compose([
-                transforms.ToPILImage(),
                 transforms.Resize(448),
                 transforms.CenterCrop(448),
                 transforms.ToTensor(),
@@ -81,7 +80,7 @@ class CUB200_loader(data.Dataset):
                 self._imglabel.append(int(label) - 1)
 
     def __getitem__(self, index):
-        img = cv2.imread(self._imgpath[index])
+        img = Image.open(slef._imgpath[index])
         img = self.transform(img)
         cls = self._imglabel[index]
         return img, cls
