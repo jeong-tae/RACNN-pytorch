@@ -5,7 +5,7 @@ and un-compress using this command `tar -xvf CUB_200_2011.tgz -C data/`
 
 ## Requirements
 - python3
-- [Pytorch 0.4 > ](https://github.com/pytorch/pytorch#from-source)
+- [Pytorch 1.2](https://github.com/pytorch/pytorch#from-source)
 - torchvision
 - numpy
 - [tensorflow](https://www.tensorflow.org/install/), optional
@@ -34,6 +34,10 @@ For training, use following command.
 
 ```bash
 $ python trainer.py
+```
+or  
+```bash
+$ ./train.sh
 ```
 
 Currently only cuda available device support.
