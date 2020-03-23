@@ -80,7 +80,7 @@ class CUB200_loader(data.Dataset):
                 self._imglabel.append(int(label) - 1)
 
     def __getitem__(self, index):
-        img = Image.open(slef._imgpath[index])
+        img = Image.open(self._imgpath[index])
         img = self.transform(img)
         cls = self._imglabel[index]
         return img, cls
