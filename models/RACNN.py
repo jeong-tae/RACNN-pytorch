@@ -72,9 +72,9 @@ class RACNN(nn.Module):
 class AttentionCropFunction(torch.autograd.Function):
     @staticmethod
     def forward(self, images, locs):
-        h = lambda x: 1 / (1 + torch.exp(-10. * x))
+        h = lambda x: 1. / (1. + torch.exp(-10. * x))
         in_size = images.size()[2]
-        unit = torch.stack([torch.arange(0, in_size)] * in_size)
+        unit = torch.stack([torch.arange(0, in_size)] * in_size).float()
         x = torch.stack([unit.t()] * 3)
         y = torch.stack([unit] * 3)
         if isinstance(images, torch.cuda.FloatTensor):
