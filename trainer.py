@@ -18,6 +18,7 @@ from data import CUB200_loader
 import cv2
 
 from models import RACNN, pairwise_ranking_loss, multitask_loss
+from utils import save_img
 
 import argparse
 
@@ -60,6 +61,7 @@ def train():
     testset = CUB200_loader(os.getcwd() + '/data/CUB_200_2011', split = 'test')
     testloader = data.DataLoader(testset, batch_size = 4,
             shuffle = False, collate_fn = testset.CUB_collate, num_workers = 4)
+    test_sample, _ = next(iter(testloader))
 
     apn_iter, apn_epoch, apn_steps = pretrainAPN(trainset, trainloader)
     cls_iter, cls_epoch, cls_steps = 0, 0, 1
@@ -93,7 +95,7 @@ def train():
                 images, labels = images.cuda(), labels.cuda()
 
             t0 = time.time()
-            logits, _, _ = net(images)
+            logits, _, _, _ = net(images)
             
             opt1.zero_grad()
             new_cls_losses = multitask_loss(logits, labels)
@@ -153,7 +155,7 @@ def train():
                 images, labels = images.cuda(), labels.cuda()
 
             t0 = time.time()
-            logits, _, _ = net(images)
+            logits, _, _, _ = net(images)
 
             opt2.zero_grad()
             preds = []
@@ -189,6 +191,11 @@ def train():
         cls_iter += 1
         apn_iter += 1
         test(testloader, iteration)
+        _, _, _, crops = net(test_sample)
+        x1, x2 = crops[0].data, crops[1].data
+        # visualize cropped inputs
+        save_img(x1, path=f'samples/iter_{iteration}@2x.jpg', annotation=f'loss = {avg_loss:.7f}, step = {iteration}')
+        save_img(x2, path=f'samples/iter_{iteration}@4x.jpg', annotation=f'loss = {avg_loss:.7f}, step = {iteration}')
 
 def pretrainAPN(trainset, trainloader):
     epoch_size = len(trainset) // 4
@@ -212,7 +219,7 @@ def pretrainAPN(trainset, trainloader):
             images, labels = images.cuda(), labels.cuda()
 
         t0 = time.time()
-        _, conv5s, attens = net(images)
+        _, conv5s, attens, _ = net(images)
             
         opt2.zero_grad()
         # search regions with the highest response value in conv5
@@ -251,8 +258,8 @@ def pretrainAPN(trainset, trainloader):
     return 20000, apn_epoch, apn_steps
 
 def test(testloader, iteration):
+    net.eval()
     with torch.no_grad():
-        net.eval()
         corrects1 = 0
         corrects2 = 0
         corrects3 = 0
@@ -265,7 +272,8 @@ def test(testloader, iteration):
                 test_labels = test_labels.cuda()
             cnt += test_labels.size(0)
 
-            logits, _, _ = net(test_images)
+            logits, _, _, _ = net(test_images)
+
             preds = []
             for i in range(len(test_labels)):
                 pred = [logit[i][test_labels[i]] for logit in logits]

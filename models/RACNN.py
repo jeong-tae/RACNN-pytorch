@@ -67,7 +67,7 @@ class RACNN(nn.Module):
         logits1 = self.classifier1(pool5)
         logits2 = self.classifier2(pool5_A)
         logits3 = self.classifier3(pool5_AA)
-        return [logits1, logits2, logits3], [conv5_4, conv5_4_A], [atten1, atten2]
+        return [logits1, logits2, logits3], [conv5_4, conv5_4_A], [atten1, atten2], [scaledA_x, scaledAA_x]
 
 class AttentionCropFunction(torch.autograd.Function):
     @staticmethod
@@ -98,7 +98,7 @@ class AttentionCropFunction(torch.autograd.Function):
             mk = (h(x-w_off) - h(x-w_end)) * (h(y-h_off) - h(y-h_end))
             xatt = images[i] * mk
             
-            xatt_cropped = xatt[:, h_off : h_end, w_off : w_end]
+            xatt_cropped = xatt[:, w_off:w_end, h_off:h_end]
             before_upsample = Variable(xatt_cropped.unsqueeze(0))
             xamp = F.upsample(before_upsample, size=(224,224), mode='bilinear', align_corners = True)
             ret.append(xamp.data.squeeze())

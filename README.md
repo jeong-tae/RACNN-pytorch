@@ -1,5 +1,7 @@
 # RACNN-pytorch
-This is a third party implementation of RA-CNN in pytorch. I am still working on reproducing a same performance written in [paper](https://www.microsoft.com/en-us/research/wp-content/uploads/2017/07/Look-Closer-to-See-Better-Recurrent-Attention-Convolutional-Neural-Network-for-Fine-grained-Image-Recognition.pdf)
+This is a third party implementation of RA-CNN in pytorch. I am still working on reproducing a same performance written in [paper](https://www.microsoft.com/en-us/research/wp-content/uploads/2017/07/Look-Closer-to-See-Better-Recurrent-Attention-Convolutional-Neural-Network-for-Fine-grained-Image-Recognition.pdf)  
+You can download CUB200 dataset from this [page](http://www.vision.caltech.edu/visipedia-data/CUB-200-2011/CUB_200_2011.tgz)  
+and un-compress using this command `tar -xvf CUB_200_2011.tgz -C data/`
 
 ## Requirements
 - python3
